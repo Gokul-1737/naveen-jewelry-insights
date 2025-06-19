@@ -7,16 +7,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 
+interface Sale {
+  id: number;
+  productName: string;
+  productType: string;
+  amount: number;
+  buyerName: string;
+  quantity: number;
+  notes: string;
+  saleDate: string;
+  createdAt: string;
+}
+
 const TodaySales = () => {
-  const [sales, setSales] = useState([]);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     productName: '',
     productType: '',
     amount: '',
     buyerName: '',
-    quantity: 1,
+    quantity: '',
     notes: ''
   });
 
@@ -24,7 +36,7 @@ const TodaySales = () => {
 
   // Mock data - replace with Supabase data
   useEffect(() => {
-    const mockSales = [
+    const mockSales: Sale[] = [
       {
         id: 1,
         productName: 'Diamond Ring',
@@ -57,14 +69,14 @@ const TodaySales = () => {
       productType: '',
       amount: '',
       buyerName: '',
-      quantity: 1,
+      quantity: '',
       notes: ''
     });
     setShowForm(false);
     setEditingId(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.productName || !formData.productType || !formData.amount || !formData.buyerName) {
@@ -77,9 +89,12 @@ const TodaySales = () => {
     }
 
     const saleData = {
-      ...formData,
+      productName: formData.productName,
+      productType: formData.productType,
       amount: parseFloat(formData.amount),
-      quantity: parseInt(formData.quantity),
+      buyerName: formData.buyerName,
+      quantity: parseInt(formData.quantity) || 1,
+      notes: formData.notes,
       saleDate: new Date().toISOString().split('T')[0],
       createdAt: new Date().toLocaleTimeString()
     };
@@ -95,7 +110,7 @@ const TodaySales = () => {
       });
     } else {
       // Add new sale
-      const newSale = {
+      const newSale: Sale = {
         id: Date.now(),
         ...saleData
       };
@@ -109,20 +124,20 @@ const TodaySales = () => {
     resetForm();
   };
 
-  const handleEdit = (sale) => {
+  const handleEdit = (sale: Sale) => {
     setFormData({
       productName: sale.productName,
       productType: sale.productType,
       amount: sale.amount.toString(),
       buyerName: sale.buyerName,
-      quantity: sale.quantity,
+      quantity: sale.quantity.toString(),
       notes: sale.notes || ''
     });
     setEditingId(sale.id);
     setShowForm(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = (id: number) => {
     setSales(prev => prev.filter(sale => sale.id !== id));
     toast({
       title: "Success",
@@ -234,6 +249,7 @@ const TodaySales = () => {
                   min="1"
                   value={formData.quantity}
                   onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                  placeholder="1"
                   className="bg-white/50 border-white/30"
                 />
               </div>

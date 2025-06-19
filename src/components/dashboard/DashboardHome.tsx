@@ -4,8 +4,25 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, ShoppingCart, Users, DollarSign } from 'lucide-react';
 
+interface MonthlyData {
+  month: string;
+  revenue: number;
+  sales: number;
+}
+
+interface ProductTypeData {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface SalesData {
+  monthly: MonthlyData[];
+  productTypes: ProductTypeData[];
+}
+
 const DashboardHome = () => {
-  const [salesData, setSalesData] = useState([]);
+  const [salesData, setSalesData] = useState<SalesData>({ monthly: [], productTypes: [] });
   const [stats, setStats] = useState({
     todayRevenue: 0,
     totalSales: 0,
@@ -15,7 +32,7 @@ const DashboardHome = () => {
 
   // Mock data - replace with actual Supabase data
   useEffect(() => {
-    const mockSalesData = [
+    const mockSalesData: MonthlyData[] = [
       { month: 'Jan', revenue: 45000, sales: 12 },
       { month: 'Feb', revenue: 52000, sales: 15 },
       { month: 'Mar', revenue: 48000, sales: 13 },
@@ -24,7 +41,7 @@ const DashboardHome = () => {
       { month: 'Jun', revenue: 67000, sales: 20 }
     ];
 
-    const productTypes = [
+    const productTypes: ProductTypeData[] = [
       { name: 'Rings', value: 35, color: '#FFD700' },
       { name: 'Necklaces', value: 25, color: '#FFA500' },
       { name: 'Earrings', value: 20, color: '#FF8C00' },
@@ -41,7 +58,13 @@ const DashboardHome = () => {
     });
   }, []);
 
-  const StatCard = ({ title, value, icon: Icon, color, change }) => (
+  const StatCard = ({ title, value, icon: Icon, color, change }: {
+    title: string;
+    value: string;
+    icon: any;
+    color: string;
+    change?: number;
+  }) => (
     <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-200">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-gray-600">
@@ -81,14 +104,14 @@ const DashboardHome = () => {
         />
         <StatCard
           title="Total Sales"
-          value={stats.totalSales}
+          value={stats.totalSales.toString()}
           icon={ShoppingCart}
           color="text-blue-600"
           change={8}
         />
         <StatCard
           title="Customers"
-          value={stats.totalCustomers}
+          value={stats.totalCustomers.toString()}
           icon={Users}
           color="text-purple-600"
           change={15}
@@ -188,7 +211,7 @@ const DashboardHome = () => {
             ))}
           </div>
         </CardContent>
-      </Card>
+      </div>
     </div>
   );
 };
