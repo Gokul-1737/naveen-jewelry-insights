@@ -12,36 +12,45 @@ export type Database = {
       sales: {
         Row: {
           amount: number
+          balance_amount: number | null
           buyer_name: string
           created_at: string
+          given_amount: number | null
           id: string
           notes: string | null
           product_name: string
           product_type: string
+          product_weight_grams: number | null
           quantity: number
           sale_date: string
           updated_at: string
         }
         Insert: {
           amount: number
+          balance_amount?: number | null
           buyer_name: string
           created_at?: string
+          given_amount?: number | null
           id?: string
           notes?: string | null
           product_name: string
           product_type: string
+          product_weight_grams?: number | null
           quantity?: number
           sale_date?: string
           updated_at?: string
         }
         Update: {
           amount?: number
+          balance_amount?: number | null
           buyer_name?: string
           created_at?: string
+          given_amount?: number | null
           id?: string
           notes?: string | null
           product_name?: string
           product_type?: string
+          product_weight_grams?: number | null
           quantity?: number
           sale_date?: string
           updated_at?: string

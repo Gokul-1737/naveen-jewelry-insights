@@ -10,7 +10,8 @@ import {
   Menu, 
   TrendingUp, 
   X,
-  Wrench
+  Wrench,
+  Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -24,6 +25,7 @@ const Navbar = ({ user, currentPage, onPageChange, onLogout }) => {
     { id: 'monthly-sales', label: 'Monthly Sales', icon: BarChart3 },
     { id: 'yearly-sales', label: 'Yearly Sales', icon: TrendingUp },
     { id: 'stock-maintenance', label: 'Stock Maintenance', icon: Wrench },
+    { id: 'import', label: 'Import Data', icon: Upload },
     { id: 'export', label: 'Export Data', icon: Download },
   ];
 

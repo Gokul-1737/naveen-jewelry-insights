@@ -14,7 +14,10 @@ interface Sale {
   id: string;
   product_name: string;
   product_type: string;
+  product_weight_grams: number;
   amount: number;
+  given_amount: number;
+  balance_amount: number;
   buyer_name: string;
   quantity: number;
   notes: string;
@@ -31,7 +34,9 @@ const TodaySales = () => {
   const [formData, setFormData] = useState({
     product_name: '',
     product_type: '',
+    product_weight_grams: '',
     amount: '',
+    given_amount: '',
     buyer_name: '',
     quantity: '1',
     notes: ''
@@ -80,7 +85,9 @@ const TodaySales = () => {
     setFormData({
       product_name: '',
       product_type: '',
+      product_weight_grams: '',
       amount: '',
+      given_amount: '',
       buyer_name: '',
       quantity: '1',
       notes: ''
@@ -106,7 +113,9 @@ const TodaySales = () => {
       const saleData = {
         product_name: formData.product_name,
         product_type: formData.product_type,
+        product_weight_grams: parseFloat(formData.product_weight_grams) || 0,
         amount: parseFloat(formData.amount),
+        given_amount: parseFloat(formData.given_amount) || 0,
         buyer_name: formData.buyer_name,
         quantity: parseInt(formData.quantity) || 1,
         notes: formData.notes,
@@ -155,7 +164,9 @@ const TodaySales = () => {
     setFormData({
       product_name: sale.product_name,
       product_type: sale.product_type,
+      product_weight_grams: sale.product_weight_grams.toString(),
       amount: sale.amount.toString(),
+      given_amount: sale.given_amount.toString(),
       buyer_name: sale.buyer_name,
       quantity: sale.quantity.toString(),
       notes: sale.notes || ''
@@ -192,6 +203,8 @@ const TodaySales = () => {
   };
 
   const totalRevenue = sales.reduce((sum, sale) => sum + sale.amount, 0);
+  const totalGiven = sales.reduce((sum, sale) => sum + sale.given_amount, 0);
+  const totalBalance = sales.reduce((sum, sale) => sum + sale.balance_amount, 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -201,9 +214,17 @@ const TodaySales = () => {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
             Sales Management
           </h1>
-          <p className="text-gray-600 mt-2">
-            Total Revenue: <span className="font-bold text-green-600">₹{totalRevenue.toLocaleString()}</span>
-          </p>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+            <p className="text-gray-600">
+              Total Revenue: <span className="font-bold text-green-600">₹{totalRevenue.toLocaleString()}</span>
+            </p>
+            <p className="text-gray-600">
+              Amount Given: <span className="font-bold text-blue-600">₹{totalGiven.toLocaleString()}</span>
+            </p>
+            <p className="text-gray-600">
+              Balance: <span className="font-bold text-red-600">₹{totalBalance.toLocaleString()}</span>
+            </p>
+          </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <DateRangePicker
@@ -272,15 +293,44 @@ const TodaySales = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Amount (₹) *
+                  Product Weight (grams)
+                </label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={formData.product_weight_grams}
+                  onChange={(e) => setFormData(prev => ({ ...prev, product_weight_grams: e.target.value }))}
+                  placeholder="Enter weight in grams"
+                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-amber-500"
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Total Amount (₹) *
                 </label>
                 <Input
                   type="number"
                   value={formData.amount}
                   onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                  placeholder="Enter amount"
+                  placeholder="Enter total amount"
                   className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-amber-500"
                   required
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Given Amount (₹)
+                </label>
+                <Input
+                  type="number"
+                  value={formData.given_amount}
+                  onChange={(e) => setFormData(prev => ({ ...prev, given_amount: e.target.value }))}
+                  placeholder="Amount paid by customer"
+                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-amber-500"
                   disabled={loading}
                 />
               </div>
@@ -385,8 +435,15 @@ const TodaySales = () => {
                   <div className="flex-1 space-y-1">
                     <h4 className="font-semibold text-gray-800">{sale.product_name}</h4>
                     <p className="text-sm text-gray-600">
-                      {sale.product_type} • Qty: {sale.quantity} • {sale.buyer_name}
+                      {sale.product_type} • {sale.product_weight_grams}g • Qty: {sale.quantity} • {sale.buyer_name}
                     </p>
+                    <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                      <span>Total: ₹{sale.amount.toLocaleString()}</span>
+                      <span>Given: ₹{sale.given_amount.toLocaleString()}</span>
+                      <span className={`font-medium ${sale.balance_amount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        Balance: ₹{sale.balance_amount.toLocaleString()}
+                      </span>
+                    </div>
                     {sale.notes && (
                       <p className="text-xs text-gray-500">{sale.notes}</p>
                     )}
@@ -395,9 +452,16 @@ const TodaySales = () => {
                     </p>
                   </div>
                   <div className="flex items-center gap-3 mt-3 sm:mt-0">
-                    <span className="font-bold text-green-600 text-lg">
-                      ₹{sale.amount.toLocaleString()}
-                    </span>
+                    <div className="text-right">
+                      <div className="font-bold text-green-600 text-lg">
+                        ₹{sale.amount.toLocaleString()}
+                      </div>
+                      {sale.balance_amount > 0 && (
+                        <div className="text-sm text-red-600">
+                          ₹{sale.balance_amount.toLocaleString()} pending
+                        </div>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         size="sm"

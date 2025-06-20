@@ -10,6 +10,8 @@ import { DateRange } from 'react-day-picker';
 interface MonthlyDataItem {
   month: string;
   revenue: number;
+  given: number;
+  balance: number;
   sales: number;
   customers: number;
 }
@@ -17,16 +19,21 @@ interface MonthlyDataItem {
 interface DailyDataItem {
   day: number;
   revenue: number;
+  given: number;
+  balance: number;
   sales: number;
 }
 
 interface SaleRecord {
   id: string;
   amount: number;
+  given_amount: number;
+  balance_amount: number;
   sale_date: string;
   buyer_name: string;
   product_name: string;
   product_type: string;
+  product_weight_grams: number;
   quantity: number;
   notes?: string;
 }
@@ -77,17 +84,19 @@ const MonthlySales = () => {
       console.error('Error fetching sales data:', error);
       // Fallback to mock data
       const mockMonthlyData: MonthlyDataItem[] = [
-        { month: 'Jan', revenue: 45000, sales: 12, customers: 8 },
-        { month: 'Feb', revenue: 52000, sales: 15, customers: 11 },
-        { month: 'Mar', revenue: 48000, sales: 13, customers: 9 },
-        { month: 'Apr', revenue: 61000, sales: 18, customers: 14 },
-        { month: 'May', revenue: 55000, sales: 16, customers: 12 },
-        { month: 'Jun', revenue: 67000, sales: 20, customers: 16 }
+        { month: 'Jan', revenue: 45000, given: 30000, balance: 15000, sales: 12, customers: 8 },
+        { month: 'Feb', revenue: 52000, given: 40000, balance: 12000, sales: 15, customers: 11 },
+        { month: 'Mar', revenue: 48000, given: 38000, balance: 10000, sales: 13, customers: 9 },
+        { month: 'Apr', revenue: 61000, given: 50000, balance: 11000, sales: 18, customers: 14 },
+        { month: 'May', revenue: 55000, given: 45000, balance: 10000, sales: 16, customers: 12 },
+        { month: 'Jun', revenue: 67000, given: 55000, balance: 12000, sales: 20, customers: 16 }
       ];
 
       const mockDailyData: DailyDataItem[] = Array.from({ length: 30 }, (_, i) => ({
         day: i + 1,
         revenue: Math.floor(Math.random() * 5000) + 1000,
+        given: Math.floor(Math.random() * 4000) + 800,
+        balance: Math.floor(Math.random() * 1000) + 200,
         sales: Math.floor(Math.random() * 3) + 1
       }));
 
@@ -102,6 +111,8 @@ const MonthlySales = () => {
     const monthlyStats: Record<string, {
       month: string;
       revenue: number;
+      given: number;
+      balance: number;
       sales: number;
       customers: Set<string>;
     }> = {};
@@ -109,9 +120,11 @@ const MonthlySales = () => {
     sales.forEach(sale => {
       const month = new Date(sale.sale_date).toLocaleDateString('en-US', { month: 'short' });
       if (!monthlyStats[month]) {
-        monthlyStats[month] = { month, revenue: 0, sales: 0, customers: new Set() };
+        monthlyStats[month] = { month, revenue: 0, given: 0, balance: 0, sales: 0, customers: new Set() };
       }
       monthlyStats[month].revenue += Number(sale.amount);
+      monthlyStats[month].given += Number(sale.given_amount);
+      monthlyStats[month].balance += Number(sale.balance_amount);
       monthlyStats[month].sales += 1;
       monthlyStats[month].customers.add(sale.buyer_name);
     });
@@ -119,6 +132,8 @@ const MonthlySales = () => {
     return Object.values(monthlyStats).map(stat => ({
       month: stat.month,
       revenue: stat.revenue,
+      given: stat.given,
+      balance: stat.balance,
       sales: stat.sales,
       customers: stat.customers.size
     }));
@@ -128,15 +143,19 @@ const MonthlySales = () => {
     const dailyStats: Record<number, {
       day: number;
       revenue: number;
+      given: number;
+      balance: number;
       sales: number;
     }> = {};
     
     sales.forEach(sale => {
       const day = new Date(sale.sale_date).getDate();
       if (!dailyStats[day]) {
-        dailyStats[day] = { day, revenue: 0, sales: 0 };
+        dailyStats[day] = { day, revenue: 0, given: 0, balance: 0, sales: 0 };
       }
       dailyStats[day].revenue += Number(sale.amount);
+      dailyStats[day].given += Number(sale.given_amount);
+      dailyStats[day].balance += Number(sale.balance_amount);
       dailyStats[day].sales += 1;
     });
 
@@ -144,6 +163,8 @@ const MonthlySales = () => {
   };
 
   const currentMonthTotal = dailyData.reduce((sum, day) => sum + day.revenue, 0);
+  const currentMonthGiven = dailyData.reduce((sum, day) => sum + day.given, 0);
+  const currentMonthBalance = dailyData.reduce((sum, day) => sum + day.balance, 0);
   const currentMonthSales = dailyData.reduce((sum, day) => sum + day.sales, 0);
 
   return (
@@ -193,7 +214,7 @@ const MonthlySales = () => {
       </div>
 
       {/* Monthly Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
           <CardHeader>
             <CardTitle className="text-lg text-gray-800">
@@ -212,28 +233,42 @@ const MonthlySales = () => {
 
         <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
           <CardHeader>
-            <CardTitle className="text-lg text-gray-800">Total Sales</CardTitle>
+            <CardTitle className="text-lg text-gray-800">Amount Given</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">
-              {currentMonthSales}
+              ₹{currentMonthGiven.toLocaleString()}
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              +8% from last month
+              {Math.round((currentMonthGiven / currentMonthTotal) * 100)}% of total
             </p>
           </CardContent>
         </Card>
 
         <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
           <CardHeader>
-            <CardTitle className="text-lg text-gray-800">Avg Daily Sales</CardTitle>
+            <CardTitle className="text-lg text-gray-800">Balance Amount</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-600">
+              ₹{currentMonthBalance.toLocaleString()}
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              {Math.round((currentMonthBalance / currentMonthTotal) * 100)}% pending
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          <CardHeader>
+            <CardTitle className="text-lg text-gray-800">Total Sales</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-600">
-              ₹{Math.round(currentMonthTotal / 30).toLocaleString()}
+              {currentMonthSales}
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              Per day average
+              +8% from last month
             </p>
           </CardContent>
         </Card>
@@ -247,7 +282,7 @@ const MonthlySales = () => {
             <CardTitle className="text-gray-800">
               Daily Sales - {months[parseInt(selectedMonth)]} {selectedYear}
             </CardTitle>
-            <CardDescription>Revenue breakdown by day</CardDescription>
+            <CardDescription>Revenue and payment breakdown by day</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -261,16 +296,39 @@ const MonthlySales = () => {
                   <XAxis dataKey="day" />
                   <YAxis />
                   <Tooltip 
-                    formatter={(value) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                    formatter={(value, name) => {
+                      const labels = {
+                        revenue: 'Total Revenue',
+                        given: 'Amount Given',
+                        balance: 'Balance Amount'
+                      };
+                      return [`₹${value.toLocaleString()}`, labels[name] || name];
+                    }}
                     labelFormatter={(day) => `Day ${day}`}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="revenue" 
-                    stroke="#FFD700" 
+                    stroke="#22C55E" 
                     strokeWidth={3}
-                    dot={{ fill: '#FFA500', strokeWidth: 2, r: 4 }}
-                    className="animate-fade-in"
+                    dot={{ fill: '#22C55E', strokeWidth: 2, r: 4 }}
+                    name="revenue"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="given" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 3 }}
+                    name="given"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="balance" 
+                    stroke="#EF4444" 
+                    strokeWidth={2}
+                    dot={{ fill: '#EF4444', strokeWidth: 2, r: 3 }}
+                    name="balance"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -278,7 +336,7 @@ const MonthlySales = () => {
           </CardContent>
         </Card>
 
-        {/* Yearly Comparison */}
+        {/* Monthly Comparison */}
         <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300">
           <CardHeader>
             <CardTitle className="text-gray-800">Monthly Comparison</CardTitle>
@@ -296,15 +354,18 @@ const MonthlySales = () => {
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip 
-                    formatter={(value) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                    formatter={(value, name) => {
+                      const labels = {
+                        revenue: 'Total Revenue',
+                        given: 'Amount Given', 
+                        balance: 'Balance Amount'
+                      };
+                      return [`₹${value.toLocaleString()}`, labels[name] || name];
+                    }}
                   />
-                  <Bar dataKey="revenue" fill="url(#goldGradient)" radius={[4, 4, 0, 0]} className="animate-fade-in" />
-                  <defs>
-                    <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#FFD700" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#FFA500" stopOpacity={0.6}/>
-                    </linearGradient>
-                  </defs>
+                  <Bar dataKey="revenue" fill="#22C55E" radius={[4, 4, 0, 0]} name="revenue" />
+                  <Bar dataKey="given" fill="#3B82F6" radius={[4, 4, 0, 0]} name="given" />
+                  <Bar dataKey="balance" fill="#EF4444" radius={[4, 4, 0, 0]} name="balance" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -323,10 +384,10 @@ const MonthlySales = () => {
         <CardContent>
           <div className="space-y-4">
             {[
-              { product: 'Diamond Ring Collection', sales: 12, revenue: 180000 },
-              { product: 'Gold Necklace Set', sales: 8, revenue: 120000 },
-              { product: 'Pearl Earrings', sales: 15, revenue: 90000 },
-              { product: 'Silver Bracelet', sales: 6, revenue: 45000 },
+              { product: 'Diamond Ring Collection', sales: 12, revenue: 180000, weight: 65.5, balance: 30000 },
+              { product: 'Gold Necklace Set', sales: 8, revenue: 120000, weight: 89.2, balance: 20000 },
+              { product: 'Pearl Earrings', sales: 15, revenue: 90000, weight: 45.8, balance: 15000 },
+              { product: 'Silver Bracelet', sales: 6, revenue: 45000, weight: 28.3, balance: 5000 },
             ].map((item, index) => (
               <div
                 key={index}
@@ -339,11 +400,14 @@ const MonthlySales = () => {
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-800">{item.product}</h4>
-                    <p className="text-sm text-gray-600">{item.sales} units sold</p>
+                    <p className="text-sm text-gray-600">{item.sales} units • {item.weight}g total</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-green-600">₹{item.revenue.toLocaleString()}</p>
+                  {item.balance > 0 && (
+                    <p className="text-sm text-red-600">₹{item.balance.toLocaleString()} pending</p>
+                  )}
                 </div>
               </div>
             ))}

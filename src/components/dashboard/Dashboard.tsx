@@ -7,6 +7,7 @@ import MonthlySales from './MonthlySales';
 import YearlySales from './YearlySales';
 import StockMaintenance from './StockMaintenance';
 import ExportData from './ExportData';
+import ImportData from './ImportData';
 
 const Dashboard = ({ user, onLogout }) => {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -25,6 +26,8 @@ const Dashboard = ({ user, onLogout }) => {
         return <StockMaintenance />;
       case 'export':
         return <ExportData />;
+      case 'import':
+        return <ImportData />;
       default:
         return <DashboardHome />;
     }
