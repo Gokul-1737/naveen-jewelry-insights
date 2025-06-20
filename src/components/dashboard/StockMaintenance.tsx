@@ -11,13 +11,20 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { DateRange } from 'react-day-picker';
 
+type MaintenanceStatus = 'scheduled' | 'in_progress' | 'completed';
+
 interface StockMaintenanceRecord {
   id: string;
   start_date: string;
   end_date: string;
   description: string;
-  status: 'scheduled' | 'in_progress' | 'completed';
+  status: MaintenanceStatus;
   created_at: string;
+}
+
+interface FormData {
+  description: string;
+  status: MaintenanceStatus;
 }
 
 const StockMaintenance = () => {
@@ -25,9 +32,9 @@ const StockMaintenance = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     description: '',
-    status: 'scheduled' as const
+    status: 'scheduled'
   });
   const [loading, setLoading] = useState(false);
 
@@ -44,7 +51,14 @@ const StockMaintenance = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMaintenanceRecords(data || []);
+      
+      // Type assertion to ensure proper typing
+      const typedData = (data || []).map(record => ({
+        ...record,
+        status: record.status as MaintenanceStatus
+      }));
+      
+      setMaintenanceRecords(typedData);
     } catch (error) {
       toast({
         title: "Error",
@@ -165,6 +179,13 @@ const StockMaintenance = () => {
     }
   };
 
+  const handleStatusChange = (value: string) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      status: value as MaintenanceStatus 
+    }));
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -231,9 +252,7 @@ const StockMaintenance = () => {
                 </label>
                 <Select 
                   value={formData.status} 
-                  onValueChange={(value: 'scheduled' | 'in_progress' | 'completed') => 
-                    setFormData(prev => ({ ...prev, status: value }))
-                  }
+                  onValueChange={handleStatusChange}
                 >
                   <SelectTrigger className="bg-white/50 border-white/30">
                     <SelectValue />

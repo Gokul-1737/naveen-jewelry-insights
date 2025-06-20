@@ -7,12 +7,36 @@ import { DateRangePicker } from '@/components/common/DateRangePicker';
 import { supabase } from '@/integrations/supabase/client';
 import { DateRange } from 'react-day-picker';
 
+interface MonthlyDataItem {
+  month: string;
+  revenue: number;
+  sales: number;
+  customers: number;
+}
+
+interface DailyDataItem {
+  day: number;
+  revenue: number;
+  sales: number;
+}
+
+interface SaleRecord {
+  id: string;
+  amount: number;
+  sale_date: string;
+  buyer_name: string;
+  product_name: string;
+  product_type: string;
+  quantity: number;
+  notes?: string;
+}
+
 const MonthlySales = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [monthlyData, setMonthlyData] = useState([]);
-  const [dailyData, setDailyData] = useState([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyDataItem[]>([]);
+  const [dailyData, setDailyData] = useState<DailyDataItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   const months = [
@@ -52,7 +76,7 @@ const MonthlySales = () => {
     } catch (error) {
       console.error('Error fetching sales data:', error);
       // Fallback to mock data
-      const mockMonthlyData = [
+      const mockMonthlyData: MonthlyDataItem[] = [
         { month: 'Jan', revenue: 45000, sales: 12, customers: 8 },
         { month: 'Feb', revenue: 52000, sales: 15, customers: 11 },
         { month: 'Mar', revenue: 48000, sales: 13, customers: 9 },
@@ -61,7 +85,7 @@ const MonthlySales = () => {
         { month: 'Jun', revenue: 67000, sales: 20, customers: 16 }
       ];
 
-      const mockDailyData = Array.from({ length: 30 }, (_, i) => ({
+      const mockDailyData: DailyDataItem[] = Array.from({ length: 30 }, (_, i) => ({
         day: i + 1,
         revenue: Math.floor(Math.random() * 5000) + 1000,
         sales: Math.floor(Math.random() * 3) + 1
@@ -74,34 +98,45 @@ const MonthlySales = () => {
     }
   };
 
-  const processMonthlyData = (sales) => {
-    const monthlyStats = {};
+  const processMonthlyData = (sales: SaleRecord[]): MonthlyDataItem[] => {
+    const monthlyStats: Record<string, {
+      month: string;
+      revenue: number;
+      sales: number;
+      customers: Set<string>;
+    }> = {};
     
     sales.forEach(sale => {
       const month = new Date(sale.sale_date).toLocaleDateString('en-US', { month: 'short' });
       if (!monthlyStats[month]) {
         monthlyStats[month] = { month, revenue: 0, sales: 0, customers: new Set() };
       }
-      monthlyStats[month].revenue += sale.amount;
+      monthlyStats[month].revenue += Number(sale.amount);
       monthlyStats[month].sales += 1;
       monthlyStats[month].customers.add(sale.buyer_name);
     });
 
     return Object.values(monthlyStats).map(stat => ({
-      ...stat,
+      month: stat.month,
+      revenue: stat.revenue,
+      sales: stat.sales,
       customers: stat.customers.size
     }));
   };
 
-  const processDailyData = (sales) => {
-    const dailyStats = {};
+  const processDailyData = (sales: SaleRecord[]): DailyDataItem[] => {
+    const dailyStats: Record<number, {
+      day: number;
+      revenue: number;
+      sales: number;
+    }> = {};
     
     sales.forEach(sale => {
       const day = new Date(sale.sale_date).getDate();
       if (!dailyStats[day]) {
         dailyStats[day] = { day, revenue: 0, sales: 0 };
       }
-      dailyStats[day].revenue += sale.amount;
+      dailyStats[day].revenue += Number(sale.amount);
       dailyStats[day].sales += 1;
     });
 
