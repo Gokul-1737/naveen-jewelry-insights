@@ -31,6 +31,11 @@ const Navbar = ({ user, currentPage, onPageChange, onLogout }) => {
     setIsCollapsed(!isCollapsed);
   };
 
+  const handlePageChange = (pageId) => {
+    onPageChange(pageId);
+    setIsOpen(false); // Auto-close mobile menu when page is selected
+  };
+
   return (
     <>
       {/* Mobile menu button */}
@@ -84,16 +89,6 @@ const Navbar = ({ user, currentPage, onPageChange, onLogout }) => {
                   <p className="text-xs text-gray-500">Stock Dashboard</p>
                 </div>
               </div>
-              
-              {/* Navbar Logo placed under Naveen Jewelry */}
-              <div className={`transition-all duration-500 ${
-                isCollapsed ? 'lg:hidden' : ''
-              }`}>
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-md">
-                  <Menu className="text-white" size={16} />
-                </div>
-                <p className="text-xs text-gray-400 text-center mt-1">Navigation</p>
-              </div>
             </div>
           </div>
 
@@ -106,10 +101,7 @@ const Navbar = ({ user, currentPage, onPageChange, onLogout }) => {
               return (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    onPageChange(item.id);
-                    setIsOpen(false);
-                  }}
+                  onClick={() => handlePageChange(item.id)}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-300 hover:scale-105 animate-fade-in group relative overflow-hidden ${
                     isActive
                       ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-lg scale-105'
