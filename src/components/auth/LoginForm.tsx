@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from '@/hooks/use-toast';
 
 const LoginForm = ({ onLogin }) => {
-  const [email, setEmail] = useState('naveenjewelry@gmail.com');
-  const [password, setPassword] = useState('naveenjewelry123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -71,50 +71,50 @@ const LoginForm = ({ onLogin }) => {
       </div>
 
       {/* Glassmorphic login card */}
-      <Card className="w-full max-w-md mx-4 backdrop-blur-lg bg-white/20 border border-white/30 shadow-2xl">
+      <Card className="w-full max-w-md mx-4 backdrop-blur-lg bg-white/20 border border-white/30 shadow-2xl animate-fade-in">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-full flex items-center justify-center shadow-lg">
-            <Gem className="text-white" size={32} />
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-full flex items-center justify-center shadow-lg transition-transform duration-300 hover:scale-110 hover:rotate-12">
+            <Gem className="text-white animate-pulse" size={32} />
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent animate-fade-in">
             Naveen Jewelry
           </CardTitle>
-          <CardDescription className="text-gray-600">
+          <CardDescription className="text-gray-600 animate-fade-in delay-200">
             Stock Maintenance Dashboard
           </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
+            <div className="space-y-2 animate-fade-in delay-300">
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400 transition-colors duration-200" />
                 <Input
                   type="email"
-                  placeholder="Email address"
+                  placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-white/50 border-white/30 backdrop-blur-sm"
+                  className="pl-10 bg-white/50 border-white/30 backdrop-blur-sm transition-all duration-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 hover:bg-white/60"
                   required
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 animate-fade-in delay-400">
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400 transition-colors duration-200" />
                 <Input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 bg-white/50 border-white/30 backdrop-blur-sm"
+                  className="pl-10 pr-10 bg-white/50 border-white/30 backdrop-blur-sm transition-all duration-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 hover:bg-white/60"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-all duration-200 hover:scale-110"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -123,18 +123,25 @@ const LoginForm = ({ onLogin }) => {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-semibold py-2.5 shadow-lg transition-all duration-200"
+              className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-semibold py-2.5 shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl animate-fade-in delay-500"
               disabled={isLoading}
             >
-              {isLoading ? "Signing in..." : "Sign in"}
+              {isLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Signing in...</span>
+                </div>
+              ) : (
+                "Sign in"
+              )}
             </Button>
 
-            <div className="text-center space-y-2 text-sm">
-              <button type="button" className="text-amber-600 hover:text-amber-800 transition-colors">
+            <div className="text-center space-y-2 text-sm animate-fade-in delay-600">
+              <button type="button" className="text-amber-600 hover:text-amber-800 transition-colors duration-200 hover:underline">
                 Forgot password?
               </button>
               <div className="text-gray-500">
-                Need an account? <button type="button" className="text-amber-600 hover:text-amber-800 transition-colors">Sign up</button>
+                Need an account? <button type="button" className="text-amber-600 hover:text-amber-800 transition-colors duration-200 hover:underline">Sign up</button>
               </div>
             </div>
           </form>

@@ -38,9 +38,11 @@ const Dashboard = ({ user, onLogout }) => {
         onPageChange={setCurrentPage} 
         onLogout={onLogout} 
       />
-      <main className="lg:ml-16 xl:ml-64 transition-all duration-300 p-6 pt-16 lg:pt-6">
-        <div className="max-w-7xl mx-auto">
-          {renderCurrentPage()}
+      <main className="lg:ml-20 xl:ml-64 transition-all duration-500 ease-in-out p-6 pt-16 lg:pt-6 animate-fade-in">
+        <div className="max-w-7xl mx-auto transition-all duration-500">
+          <div className="animate-scale-in">
+            {renderCurrentPage()}
+          </div>
         </div>
       </main>
     </div>
