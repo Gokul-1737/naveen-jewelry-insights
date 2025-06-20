@@ -5,6 +5,7 @@ import DashboardHome from './DashboardHome';
 import TodaySales from './TodaySales';
 import MonthlySales from './MonthlySales';
 import YearlySales from './YearlySales';
+import StockMaintenance from './StockMaintenance';
 import ExportData from './ExportData';
 
 const Dashboard = ({ user, onLogout }) => {
@@ -20,6 +21,8 @@ const Dashboard = ({ user, onLogout }) => {
         return <MonthlySales />;
       case 'yearly-sales':
         return <YearlySales />;
+      case 'stock-maintenance':
+        return <StockMaintenance />;
       case 'export':
         return <ExportData />;
       default:
@@ -35,8 +38,10 @@ const Dashboard = ({ user, onLogout }) => {
         onPageChange={setCurrentPage} 
         onLogout={onLogout} 
       />
-      <main className="lg:ml-64 p-6">
-        {renderCurrentPage()}
+      <main className="lg:ml-16 xl:ml-64 transition-all duration-300 p-6 pt-16 lg:pt-6">
+        <div className="max-w-7xl mx-auto">
+          {renderCurrentPage()}
+        </div>
       </main>
     </div>
   );
