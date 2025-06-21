@@ -49,38 +49,65 @@ const TotalStock = () => {
 
   const fetchStockWithCalculations = async () => {
     try {
+      setLoading(true);
+      
       // Fetch stock items
       const { data: stockData, error: stockError } = await supabase
         .from('stock')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (stockError) throw stockError;
+      if (stockError) {
+        console.error('Stock fetch error:', stockError);
+        throw stockError;
+      }
 
       // Fetch today's sales
       const today = new Date().toISOString().split('T')[0];
+      console.log('Fetching sales for date:', today);
+      
       const { data: salesData, error: salesError } = await supabase
         .from('sales')
         .select('product_name, product_type, product_weight_grams, quantity')
         .eq('sale_date', today);
 
-      if (salesError) throw salesError;
+      if (salesError) {
+        console.error('Sales fetch error:', salesError);
+        throw salesError;
+      }
+
+      console.log('Stock data:', stockData);
+      console.log('Today sales data:', salesData);
 
       // Calculate remaining stock
       const stockWithRemaining: StockWithRemaining[] = (stockData || []).map((stock) => {
+        // Find all sales for this specific product (match by name AND type)
         const todaySales = (salesData || []).filter(
-          (sale) => sale.product_name === stock.product_name && sale.product_type === stock.product_type
+          (sale) => 
+            sale.product_name.toLowerCase() === stock.product_name.toLowerCase() && 
+            sale.product_type.toLowerCase() === stock.product_type.toLowerCase()
         );
 
-        const todayTotalQuantity = todaySales.reduce((sum, sale) => sum + sale.quantity, 0);
-        const todayTotalWeight = todaySales.reduce((sum, sale) => sum + (sale.product_weight_grams || 0) * sale.quantity, 0);
+        console.log(`Matching sales for ${stock.product_name} (${stock.product_type}):`, todaySales);
+
+        const todayTotalQuantity = todaySales.reduce((sum, sale) => sum + (sale.quantity || 0), 0);
+        const todayTotalWeight = todaySales.reduce((sum, sale) => {
+          const saleWeight = (sale.product_weight_grams || 0) * (sale.quantity || 1);
+          return sum + saleWeight;
+        }, 0);
+
+        const remainingQuantity = Math.max(0, stock.quantity_available - todayTotalQuantity);
+        const totalStockWeight = stock.product_weight_grams * stock.quantity_available;
+        const remainingWeight = Math.max(0, totalStockWeight - todayTotalWeight);
+
+        console.log(`${stock.product_name}: Stock(${stock.quantity_available}) - Sold(${todayTotalQuantity}) = Remaining(${remainingQuantity})`);
 
         return {
           ...stock,
           today_sold_quantity: todayTotalQuantity,
           today_sold_weight: todayTotalWeight,
-          remaining_quantity: Math.max(0, stock.quantity_available - todayTotalQuantity),
-          remaining_weight: Math.max(0, (stock.product_weight_grams * stock.quantity_available) - todayTotalWeight)
+          remaining_quantity: remainingQuantity,
+          remaining_weight: remainingWeight
         };
       });
 
@@ -164,6 +191,29 @@ const TotalStock = () => {
     setShowAddForm(false);
     setEditingItem(null);
   };
+
+  // Subscribe to real-time changes on sales table
+  useEffect(() => {
+    const channel = supabase
+      .channel('stock-sales-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sales'
+        },
+        (payload) => {
+          console.log('Sales table changed:', payload);
+          fetchStockWithCalculations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -292,7 +342,9 @@ const TotalStock = () => {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div>Loading...</div>
+            <div className="flex justify-center items-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+            </div>
           ) : (
             <Table>
               <TableHeader>

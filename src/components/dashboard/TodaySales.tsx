@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Save, X, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -71,6 +70,7 @@ const TodaySales = () => {
       if (error) throw error;
       setSales(data || []);
     } catch (error) {
+      console.error('Error fetching sales:', error);
       toast({
         title: "Error",
         description: "Failed to fetch sales data",
@@ -111,16 +111,18 @@ const TodaySales = () => {
     setLoading(true);
     try {
       const saleData = {
-        product_name: formData.product_name,
-        product_type: formData.product_type,
+        product_name: formData.product_name.trim(),
+        product_type: formData.product_type.trim(),
         product_weight_grams: parseFloat(formData.product_weight_grams) || 0,
         amount: parseFloat(formData.amount),
         given_amount: parseFloat(formData.given_amount) || 0,
-        buyer_name: formData.buyer_name,
+        buyer_name: formData.buyer_name.trim(),
         quantity: parseInt(formData.quantity) || 1,
-        notes: formData.notes,
+        notes: formData.notes.trim(),
         sale_date: new Date().toISOString().split('T')[0]
       };
+
+      console.log('Saving sale data:', saleData);
 
       if (editingId) {
         const { error } = await supabase
@@ -143,13 +145,14 @@ const TodaySales = () => {
         
         toast({
           title: "Success",
-          description: "Sale added successfully",
+          description: "Sale added successfully - Stock will be updated automatically",
         });
       }
 
       resetForm();
       fetchSales();
     } catch (error) {
+      console.error('Error saving sale:', error);
       toast({
         title: "Error",
         description: "Failed to save sale",
@@ -252,7 +255,7 @@ const TodaySales = () => {
               {editingId ? 'Edit Sale' : 'Add New Sale'}
             </CardTitle>
             <CardDescription>
-              Enter the details of the jewelry sale
+              Enter the details of the jewelry sale (Stock will be automatically reduced)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -264,7 +267,7 @@ const TodaySales = () => {
                 <Input
                   value={formData.product_name}
                   onChange={(e) => setFormData(prev => ({ ...prev, product_name: e.target.value }))}
-                  placeholder="Enter product name"
+                  placeholder="Enter product name (e.g., Gold)"
                   className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-amber-500"
                   required
                   disabled={loading}
@@ -281,7 +284,7 @@ const TodaySales = () => {
                   disabled={loading}
                 >
                   <SelectTrigger className="bg-white/50 border-white/30">
-                    <SelectValue placeholder="Select product type" />
+                    <SelectValue placeholder="Select product type (e.g., Chain)" />
                   </SelectTrigger>
                   <SelectContent>
                     {productTypes.map(type => (
@@ -300,8 +303,24 @@ const TodaySales = () => {
                   step="0.1"
                   value={formData.product_weight_grams}
                   onChange={(e) => setFormData(prev => ({ ...prev, product_weight_grams: e.target.value }))}
-                  placeholder="Enter weight in grams"
+                  placeholder="Enter weight per unit (e.g., 100)"
                   className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-amber-500"
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quantity *
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                  placeholder="Quantity (e.g., 3)"
+                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-amber-500"
+                  required
                   disabled={loading}
                 />
               </div>
@@ -345,21 +364,6 @@ const TodaySales = () => {
                   placeholder="Enter buyer name"
                   className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-amber-500"
                   required
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quantity
-                </label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
-                  placeholder="1"
-                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-amber-500"
                   disabled={loading}
                 />
               </div>
