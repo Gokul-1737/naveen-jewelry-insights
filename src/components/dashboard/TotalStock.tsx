@@ -6,14 +6,36 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Package, Edit, Trash2 } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface StockItem {
+  id: string;
+  product_name: string;
+  product_type: string;
+  product_weight_grams: number;
+  quantity_available: number;
+}
+
+interface TodaySale {
+  product_name: string;
+  product_type: string;
+  product_weight_grams: number;
+  quantity: number;
+}
+
+interface StockWithRemaining extends StockItem {
+  today_sold_quantity: number;
+  today_sold_weight: number;
+  remaining_quantity: number;
+  remaining_weight: number;
+}
+
 const TotalStock = () => {
-  const [stockItems, setStockItems] = useState([]);
+  const [stockItems, setStockItems] = useState<StockWithRemaining[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [formData, setFormData] = useState({
     product_name: '',
     product_type: '',
@@ -22,18 +44,47 @@ const TotalStock = () => {
   });
 
   useEffect(() => {
-    fetchStockItems();
+    fetchStockWithCalculations();
   }, []);
 
-  const fetchStockItems = async () => {
+  const fetchStockWithCalculations = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch stock items
+      const { data: stockData, error: stockError } = await supabase
         .from('stock')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setStockItems(data || []);
+      if (stockError) throw stockError;
+
+      // Fetch today's sales
+      const today = new Date().toISOString().split('T')[0];
+      const { data: salesData, error: salesError } = await supabase
+        .from('sales')
+        .select('product_name, product_type, product_weight_grams, quantity')
+        .eq('sale_date', today);
+
+      if (salesError) throw salesError;
+
+      // Calculate remaining stock
+      const stockWithRemaining: StockWithRemaining[] = (stockData || []).map((stock) => {
+        const todaySales = (salesData || []).filter(
+          (sale) => sale.product_name === stock.product_name && sale.product_type === stock.product_type
+        );
+
+        const todayTotalQuantity = todaySales.reduce((sum, sale) => sum + sale.quantity, 0);
+        const todayTotalWeight = todaySales.reduce((sum, sale) => sum + (sale.product_weight_grams || 0) * sale.quantity, 0);
+
+        return {
+          ...stock,
+          today_sold_quantity: todayTotalQuantity,
+          today_sold_weight: todayTotalWeight,
+          remaining_quantity: Math.max(0, stock.quantity_available - todayTotalQuantity),
+          remaining_weight: Math.max(0, (stock.product_weight_grams * stock.quantity_available) - todayTotalWeight)
+        };
+      });
+
+      setStockItems(stockWithRemaining);
     } catch (error) {
       console.error('Error fetching stock:', error);
       toast.error('Failed to fetch stock items');
@@ -42,7 +93,7 @@ const TotalStock = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const data = {
@@ -72,14 +123,14 @@ const TotalStock = () => {
       setFormData({ product_name: '', product_type: '', product_weight_grams: '', quantity_available: '' });
       setShowAddForm(false);
       setEditingItem(null);
-      fetchStockItems();
+      fetchStockWithCalculations();
     } catch (error) {
       console.error('Error saving stock item:', error);
       toast.error('Failed to save stock item');
     }
   };
 
-  const handleEdit = (item) => {
+  const handleEdit = (item: StockItem) => {
     setEditingItem(item);
     setFormData({
       product_name: item.product_name,
@@ -90,7 +141,7 @@ const TotalStock = () => {
     setShowAddForm(true);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this stock item?')) return;
 
     try {
@@ -101,7 +152,7 @@ const TotalStock = () => {
 
       if (error) throw error;
       toast.success('Stock item deleted successfully');
-      fetchStockItems();
+      fetchStockWithCalculations();
     } catch (error) {
       console.error('Error deleting stock item:', error);
       toast.error('Failed to delete stock item');
@@ -118,13 +169,51 @@ const TotalStock = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Total Stock</h1>
-          <p className="text-gray-600">Manage your product inventory</p>
+          <h1 className="text-3xl font-bold text-gray-900">Total Stock Management</h1>
+          <p className="text-gray-600">Manage your product inventory with real-time remaining stock calculations</p>
         </div>
         <Button onClick={() => setShowAddForm(true)} className="bg-amber-500 hover:bg-amber-600">
           <Plus className="w-4 h-4 mr-2" />
           Add Stock
         </Button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stockItems.length}</div>
+            <p className="text-xs text-muted-foreground">Different product types</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Today's Sales</CardTitle>
+            <TrendingDown className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stockItems.reduce((sum, item) => sum + item.today_sold_quantity, 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">Units sold today</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Remaining Stock</CardTitle>
+            <Package className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stockItems.reduce((sum, item) => sum + item.remaining_quantity, 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">Units remaining</p>
+          </CardContent>
+        </Card>
       </div>
 
       {showAddForm && (
@@ -157,7 +246,7 @@ const TotalStock = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="product_weight_grams">Weight (grams)</Label>
+                  <Label htmlFor="product_weight_grams">Weight per unit (grams)</Label>
                   <Input
                     id="product_weight_grams"
                     type="number"
@@ -195,8 +284,11 @@ const TotalStock = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="w-5 h-5" />
-            Stock Items
+            Stock Items with Remaining Calculations
           </CardTitle>
+          <CardDescription>
+            Real-time view of total stock minus today's sales
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -207,18 +299,39 @@ const TotalStock = () => {
                 <TableRow>
                   <TableHead>Product Name</TableHead>
                   <TableHead>Product Type</TableHead>
-                  <TableHead>Weight (g)</TableHead>
-                  <TableHead>Available Qty</TableHead>
+                  <TableHead>Weight/Unit (g)</TableHead>
+                  <TableHead>Total Stock</TableHead>
+                  <TableHead>Today Sold</TableHead>
+                  <TableHead className="text-green-600">Remaining</TableHead>
+                  <TableHead>Weight Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {stockItems.map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} className={item.remaining_quantity <= 5 ? 'bg-red-50' : ''}>
                     <TableCell className="font-medium">{item.product_name}</TableCell>
                     <TableCell>{item.product_type}</TableCell>
                     <TableCell>{item.product_weight_grams}g</TableCell>
                     <TableCell>{item.quantity_available}</TableCell>
+                    <TableCell className="text-red-600">
+                      {item.today_sold_quantity > 0 ? `-${item.today_sold_quantity}` : '0'}
+                    </TableCell>
+                    <TableCell className={`font-bold ${item.remaining_quantity <= 5 ? 'text-red-600' : 'text-green-600'}`}>
+                      {item.remaining_quantity}
+                      {item.remaining_quantity <= 5 && item.remaining_quantity > 0 && (
+                        <span className="text-xs ml-1">(Low Stock)</span>
+                      )}
+                      {item.remaining_quantity === 0 && (
+                        <span className="text-xs ml-1">(Out of Stock)</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div>Total: {(item.product_weight_grams * item.quantity_available).toFixed(1)}g</div>
+                        <div className="text-green-600">Left: {item.remaining_weight.toFixed(1)}g</div>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
