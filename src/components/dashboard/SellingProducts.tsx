@@ -69,7 +69,7 @@ const SellingProducts = () => {
         quantity: parseInt(formData.quantity),
         buyer_name: formData.buyer_name,
         amount: parseFloat(formData.amount),
-        given_amount: parseFloat(formData.given_amount || 0),
+        given_amount: parseFloat(formData.given_amount || '0'),
         sale_date: format(formData.sale_date, 'yyyy-MM-dd'),
         notes: formData.notes
       };
