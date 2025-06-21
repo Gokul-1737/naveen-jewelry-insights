@@ -8,6 +8,7 @@ import YearlySales from './YearlySales';
 import TotalStock from './TotalStock';
 import BuyingProducts from './BuyingProducts';
 import SellingProducts from './SellingProducts';
+import LeaveAmount from './LeaveAmount';
 import ExportData from './ExportData';
 
 const Dashboard = ({ user, onLogout }) => {
@@ -29,6 +30,8 @@ const Dashboard = ({ user, onLogout }) => {
         return <BuyingProducts />;
       case 'selling-products':
         return <SellingProducts />;
+      case 'leave-amount':
+        return <LeaveAmount />;
       case 'export':
         return <ExportData />;
       default:
