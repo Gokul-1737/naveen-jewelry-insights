@@ -1,388 +1,413 @@
 
 import { useState, useEffect } from 'react';
-import { Download, FileText, Calendar, Filter } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { DateRangePicker } from '@/components/common/DateRangePicker';
-import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { DateRange } from 'react-day-picker';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, Download, FileText } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
-interface SaleRecord {
-  id: string;
-  product_name: string;
-  product_type: string;
-  product_weight_grams: number;
-  amount: number;
-  given_amount: number;
-  balance_amount: number;
-  buyer_name: string;
-  quantity: number;
-  notes: string;
-  sale_date: string;
-  created_at: string;
-}
-
 const ExportData = () => {
-  const [exportType, setExportType] = useState('all');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [format, setFormat] = useState('csv');
+  const [dateRange, setDateRange] = useState({
+    from: null,
+    to: null
+  });
+  const [salesData, setSalesData] = useState([]);
+  const [purchasesData, setPurchasesData] = useState([]);
+  const [stockData, setStockData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [salesData, setSalesData] = useState<SaleRecord[]>([]);
-  const [filteredCount, setFilteredCount] = useState(0);
 
   useEffect(() => {
-    fetchSalesData();
-  }, [dateRange, exportType]);
+    fetchAllData();
+  }, [dateRange]);
+
+  const fetchAllData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchSalesData(),
+        fetchPurchasesData(),
+        fetchStockData()
+      ]);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchSalesData = async () => {
-    setLoading(true);
     try {
       let query = supabase
         .from('sales')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('sale_date', { ascending: false });
 
-      // Apply date range filter
-      if (dateRange?.from && dateRange?.to) {
+      if (dateRange.from && dateRange.to) {
         query = query
-          .gte('sale_date', dateRange.from.toISOString().split('T')[0])
-          .lte('sale_date', dateRange.to.toISOString().split('T')[0]);
-      } else {
-        // Apply default filters based on export type
-        const today = new Date();
-        const currentYear = today.getFullYear();
-        const currentMonth = today.getMonth();
-
-        switch (exportType) {
-          case 'today':
-            query = query.eq('sale_date', today.toISOString().split('T')[0]);
-            break;
-          case 'monthly':
-            const monthStart = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
-            const monthEnd = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
-            query = query.gte('sale_date', monthStart).lte('sale_date', monthEnd);
-            break;
-          case 'yearly':
-            const yearStart = `${currentYear}-01-01`;
-            const yearEnd = `${currentYear}-12-31`;
-            query = query.gte('sale_date', yearStart).lte('sale_date', yearEnd);
-            break;
-        }
+          .gte('sale_date', format(dateRange.from, 'yyyy-MM-dd'))
+          .lte('sale_date', format(dateRange.to, 'yyyy-MM-dd'));
       }
 
       const { data, error } = await query;
-      
       if (error) throw error;
-      
       setSalesData(data || []);
-      setFilteredCount(data?.length || 0);
     } catch (error) {
-      console.error('Error fetching sales data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch sales data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      console.error('Error fetching sales:', error);
     }
   };
 
-  const handleExport = async () => {
+  const fetchPurchasesData = async () => {
+    try {
+      let query = supabase
+        .from('purchases')
+        .select('*')
+        .order('purchase_date', { ascending: false });
+
+      if (dateRange.from && dateRange.to) {
+        query = query
+          .gte('purchase_date', format(dateRange.from, 'yyyy-MM-dd'))
+          .lte('purchase_date', format(dateRange.to, 'yyyy-MM-dd'));
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setPurchasesData(data || []);
+    } catch (error) {
+      console.error('Error fetching purchases:', error);
+    }
+  };
+
+  const fetchStockData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stock')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setStockData(data || []);
+    } catch (error) {
+      console.error('Error fetching stock:', error);
+    }
+  };
+
+  const exportSalesData = () => {
     if (salesData.length === 0) {
-      toast({
-        title: "No Data",
-        description: "No sales data found for the selected criteria",
-        variant: "destructive",
-      });
+      toast.error('No sales data to export');
       return;
     }
 
-    setLoading(true);
-    try {
-      const filename = `naveen-jewelry-${exportType}-${new Date().toISOString().split('T')[0]}.${format}`;
-      
-      // Prepare export data with all fields
-      const exportData = salesData.map(sale => ({
-        'Date': new Date(sale.sale_date).toLocaleDateString(),
-        'Product Name': sale.product_name,
-        'Product Type': sale.product_type,
-        'Weight (grams)': sale.product_weight_grams,
-        'Total Amount': sale.amount,
-        'Given Amount': sale.given_amount,
-        'Balance Amount': sale.balance_amount,
-        'Buyer Name': sale.buyer_name,
-        'Quantity': sale.quantity,
-        'Notes': sale.notes || '',
-        'Created At': new Date(sale.created_at).toLocaleString()
-      }));
+    const exportData = salesData.map(sale => ({
+      'Date': format(new Date(sale.sale_date), 'yyyy-MM-dd'),
+      'Product Name': sale.product_name,
+      'Product Type': sale.product_type,
+      'Weight (g)': sale.product_weight_grams || 0,
+      'Quantity': sale.quantity,
+      'Buyer Name': sale.buyer_name,
+      'Total Amount': sale.amount,
+      'Given Amount': sale.given_amount || 0,
+      'Balance Amount': sale.balance_amount || 0,
+      'Notes': sale.notes || ''
+    }));
 
-      if (format === 'csv') {
-        const headers = Object.keys(exportData[0]);
-        const csvContent = [
-          headers.join(','),
-          ...exportData.map(row => 
-            headers.map(header => `"${row[header]}"`).join(',')
-          )
-        ].join('\n');
-        
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        window.URL.revokeObjectURL(url);
-      } else if (format === 'xlsx') {
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Sales Data');
-        XLSX.writeFile(wb, filename);
-      } else if (format === 'json') {
-        const jsonContent = JSON.stringify(exportData, null, 2);
-        const blob = new Blob([jsonContent], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        window.URL.revokeObjectURL(url);
-      }
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sales Data');
 
-      toast({
-        title: "Export Complete",
-        description: `Successfully exported ${salesData.length} records as ${filename}`,
-      });
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "An error occurred while exporting the data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    const fileName = `sales_data_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    toast.success('Sales data exported successfully');
   };
 
-  const quickExport = async (type: string) => {
-    setExportType(type);
-    // Wait for state update and data fetch
-    setTimeout(() => {
-      handleExport();
-    }, 1000);
+  const exportPurchasesData = () => {
+    if (purchasesData.length === 0) {
+      toast.error('No purchases data to export');
+      return;
+    }
+
+    const exportData = purchasesData.map(purchase => ({
+      'Date': format(new Date(purchase.purchase_date), 'yyyy-MM-dd'),
+      'Product Name': purchase.product_name,
+      'Product Type': purchase.product_type,
+      'Weight (g)': purchase.product_weight_grams,
+      'Quantity': purchase.quantity,
+      'Buyer Name': purchase.buyer_name,
+      'Amount': purchase.amount,
+      'Notes': purchase.notes || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Purchases Data');
+
+    const fileName = `purchases_data_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    toast.success('Purchases data exported successfully');
+  };
+
+  const exportStockData = () => {
+    if (stockData.length === 0) {
+      toast.error('No stock data to export');
+      return;
+    }
+
+    const exportData = stockData.map(stock => ({
+      'Product Name': stock.product_name,
+      'Product Type': stock.product_type,
+      'Weight (g)': stock.product_weight_grams,
+      'Available Quantity': stock.quantity_available,
+      'Created Date': format(new Date(stock.created_at), 'yyyy-MM-dd'),
+      'Last Updated': format(new Date(stock.updated_at), 'yyyy-MM-dd')
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock Data');
+
+    const fileName = `stock_data_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    toast.success('Stock data exported successfully');
+  };
+
+  const exportAllData = () => {
+    const workbook = XLSX.utils.book_new();
+
+    // Sales data
+    if (salesData.length > 0) {
+      const salesExportData = salesData.map(sale => ({
+        'Date': format(new Date(sale.sale_date), 'yyyy-MM-dd'),
+        'Product Name': sale.product_name,
+        'Product Type': sale.product_type,
+        'Weight (g)': sale.product_weight_grams || 0,
+        'Quantity': sale.quantity,
+        'Buyer Name': sale.buyer_name,
+        'Total Amount': sale.amount,
+        'Given Amount': sale.given_amount || 0,
+        'Balance Amount': sale.balance_amount || 0,
+        'Notes': sale.notes || ''
+      }));
+      const salesWorksheet = XLSX.utils.json_to_sheet(salesExportData);
+      XLSX.utils.book_append_sheet(workbook, salesWorksheet, 'Sales');
+    }
+
+    // Purchases data
+    if (purchasesData.length > 0) {
+      const purchasesExportData = purchasesData.map(purchase => ({
+        'Date': format(new Date(purchase.purchase_date), 'yyyy-MM-dd'),
+        'Product Name': purchase.product_name,
+        'Product Type': purchase.product_type,
+        'Weight (g)': purchase.product_weight_grams,
+        'Quantity': purchase.quantity,
+        'Buyer Name': purchase.buyer_name,
+        'Amount': purchase.amount,
+        'Notes': purchase.notes || ''
+      }));
+      const purchasesWorksheet = XLSX.utils.json_to_sheet(purchasesExportData);
+      XLSX.utils.book_append_sheet(workbook, purchasesWorksheet, 'Purchases');
+    }
+
+    // Stock data
+    if (stockData.length > 0) {
+      const stockExportData = stockData.map(stock => ({
+        'Product Name': stock.product_name,
+        'Product Type': stock.product_type,
+        'Weight (g)': stock.product_weight_grams,
+        'Available Quantity': stock.quantity_available,
+        'Created Date': format(new Date(stock.created_at), 'yyyy-MM-dd'),
+        'Last Updated': format(new Date(stock.updated_at), 'yyyy-MM-dd')
+      }));
+      const stockWorksheet = XLSX.utils.json_to_sheet(stockExportData);
+      XLSX.utils.book_append_sheet(workbook, stockWorksheet, 'Stock');
+    }
+
+    const fileName = `complete_data_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    toast.success('All data exported successfully');
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
-            Export Sales Data
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Download your sales data in various formats for analysis
-            {filteredCount > 0 && (
-              <span className="ml-2 font-semibold text-green-600">
-                ({filteredCount} records found)
-              </span>
-            )}
-          </p>
-        </div>
-        <DateRangePicker
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          placeholder="Filter by date range"
-          className="w-full sm:w-auto"
-        />
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Export Data</h1>
+        <p className="text-gray-600">Export your sales, purchases, and stock data to Excel format</p>
       </div>
 
-      {/* Export Configuration */}
-      <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-gray-800 flex items-center">
-            <FileText className="mr-2" size={20} />
-            Export Configuration
-          </CardTitle>
-          <CardDescription>
-            Configure your export settings and download options
-          </CardDescription>
+          <CardTitle>Date Range Filter</CardTitle>
+          <CardDescription>Select a date range to filter sales and purchases data (optional)</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Data Type Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <CardContent>
+          <div className="flex flex-wrap gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Data Type
-              </label>
-              <Select value={exportType} onValueChange={setExportType}>
-                <SelectTrigger className="bg-white/50 border-white/30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sales Data</SelectItem>
-                  <SelectItem value="today">Today's Sales</SelectItem>
-                  <SelectItem value="monthly">Monthly Sales</SelectItem>
-                  <SelectItem value="yearly">Yearly Sales</SelectItem>
-                  <SelectItem value="products">Product Summary</SelectItem>
-                  <SelectItem value="customers">Customer Data</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">From Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[240px] justify-start text-left font-normal",
+                      !dateRange.from && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange.from ? format(dateRange.from, "PPP") : <span>Pick start date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateRange.from}
+                    onSelect={(date) => setDateRange({ ...dateRange, from: date })}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Export Format
-              </label>
-              <Select value={format} onValueChange={setFormat}>
-                <SelectTrigger className="bg-white/50 border-white/30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="csv">CSV (.csv)</SelectItem>
-                  <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
-                  <SelectItem value="json">JSON (.json)</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">To Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[240px] justify-start text-left font-normal",
+                      !dateRange.to && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange.to ? format(dateRange.to, "PPP") : <span>Pick end date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateRange.to}
+                    onSelect={(date) => setDateRange({ ...dateRange, to: date })}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
-          </div>
-
-          {/* Export Button */}
-          <div className="pt-4">
-            <Button
-              onClick={handleExport}
-              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg"
-              disabled={loading || salesData.length === 0}
-            >
-              <Download className="mr-2" size={18} />
-              {loading ? 'Preparing Export...' : `Export ${filteredCount} Records`}
-            </Button>
+            <div className="flex items-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setDateRange({ from: null, to: null })}
+              >
+                Clear Filter
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Quick Export Options */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[
-          {
-            title: 'Today\'s Sales',
-            description: 'Export all sales from today',
-            type: 'today',
-            icon: '📅',
-            count: salesData.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length
-          },
-          {
-            title: 'Monthly Sales',
-            description: 'Current month sales report',
-            type: 'monthly',
-            icon: '📊',
-            count: salesData.length
-          },
-          {
-            title: 'Yearly Sales',
-            description: 'Complete yearly sales data',
-            type: 'yearly',
-            icon: '📈',
-            count: salesData.length
-          },
-          {
-            title: 'All Sales',
-            description: 'Complete sales database',
-            type: 'all',
-            icon: '💎',
-            count: salesData.length
-          },
-          {
-            title: 'High Value Sales',
-            description: 'Sales above ₹50,000',
-            type: 'high-value',
-            icon: '💰',
-            count: salesData.filter(s => s.amount > 50000).length
-          },
-          {
-            title: 'Pending Payments',
-            description: 'Sales with balance amount',
-            type: 'pending',
-            icon: '⏳',
-            count: salesData.filter(s => s.balance_amount > 0).length
-          }
-        ].map((option, index) => (
-          <Card key={index} className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg hover:shadow-xl transition-all duration-200">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl">{option.icon}</div>
-                <span className="text-sm font-bold text-amber-600">{option.count} records</span>
-              </div>
-              <CardTitle className="text-lg text-gray-800">{option.title}</CardTitle>
-              <CardDescription className="text-sm">
-                {option.description}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={() => quickExport(option.type)}
-                variant="outline"
-                className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
-                disabled={loading || option.count === 0}
-              >
-                <Download size={16} className="mr-2" />
-                Quick Export
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Data Preview */}
-      {salesData.length > 0 && (
-        <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-gray-800">Data Preview</CardTitle>
-            <CardDescription>Preview of sales data to be exported</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Sales Data
+            </CardTitle>
+            <CardDescription>
+              {salesData.length} records
+              {dateRange.from && dateRange.to && (
+                <span className="block text-xs">
+                  {format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd, yyyy")}
+                </span>
+              )}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left p-2">Date</th>
-                    <th className="text-left p-2">Product</th>
-                    <th className="text-left p-2">Type</th>
-                    <th className="text-left p-2">Weight (g)</th>
-                    <th className="text-left p-2">Amount</th>
-                    <th className="text-left p-2">Given</th>
-                    <th className="text-left p-2">Balance</th>
-                    <th className="text-left p-2">Buyer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {salesData.slice(0, 5).map((sale, index) => (
-                    <tr key={index} className="border-b border-gray-100">
-                      <td className="p-2">{new Date(sale.sale_date).toLocaleDateString()}</td>
-                      <td className="p-2">{sale.product_name}</td>
-                      <td className="p-2">{sale.product_type}</td>
-                      <td className="p-2">{sale.product_weight_grams}g</td>
-                      <td className="p-2">₹{sale.amount.toLocaleString()}</td>
-                      <td className="p-2">₹{sale.given_amount.toLocaleString()}</td>
-                      <td className="p-2">₹{sale.balance_amount.toLocaleString()}</td>
-                      <td className="p-2">{sale.buyer_name}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {salesData.length > 5 && (
-                <p className="text-center text-gray-500 mt-4">
-                  ... and {salesData.length - 5} more records
-                </p>
-              )}
-            </div>
+            <Button 
+              onClick={exportSalesData} 
+              disabled={loading || salesData.length === 0}
+              className="w-full"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Sales
+            </Button>
           </CardContent>
         </Card>
-      )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Purchases Data
+            </CardTitle>
+            <CardDescription>
+              {purchasesData.length} records
+              {dateRange.from && dateRange.to && (
+                <span className="block text-xs">
+                  {format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd, yyyy")}
+                </span>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={exportPurchasesData} 
+              disabled={loading || purchasesData.length === 0}
+              className="w-full"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Purchases
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Stock Data
+            </CardTitle>
+            <CardDescription>
+              {stockData.length} items in stock
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={exportStockData} 
+              disabled={loading || stockData.length === 0}
+              className="w-full"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Stock
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5" />
+              Complete Export
+            </CardTitle>
+            <CardDescription>
+              Export all data in one file
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={exportAllData} 
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export All
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

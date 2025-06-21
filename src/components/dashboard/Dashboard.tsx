@@ -5,9 +5,10 @@ import DashboardHome from './DashboardHome';
 import TodaySales from './TodaySales';
 import MonthlySales from './MonthlySales';
 import YearlySales from './YearlySales';
-import StockMaintenance from './StockMaintenance';
+import TotalStock from './TotalStock';
+import BuyingProducts from './BuyingProducts';
+import SellingProducts from './SellingProducts';
 import ExportData from './ExportData';
-import ImportData from './ImportData';
 
 const Dashboard = ({ user, onLogout }) => {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -22,12 +23,14 @@ const Dashboard = ({ user, onLogout }) => {
         return <MonthlySales />;
       case 'yearly-sales':
         return <YearlySales />;
-      case 'stock-maintenance':
-        return <StockMaintenance />;
+      case 'total-stock':
+        return <TotalStock />;
+      case 'buying-products':
+        return <BuyingProducts />;
+      case 'selling-products':
+        return <SellingProducts />;
       case 'export':
         return <ExportData />;
-      case 'import':
-        return <ImportData />;
       default:
         return <DashboardHome />;
     }

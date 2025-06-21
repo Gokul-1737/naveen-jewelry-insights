@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      purchases: {
+        Row: {
+          amount: number
+          buyer_name: string
+          created_at: string
+          id: string
+          notes: string | null
+          product_name: string
+          product_type: string
+          product_weight_grams: number
+          purchase_date: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          buyer_name: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_name: string
+          product_type: string
+          product_weight_grams?: number
+          purchase_date?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          buyer_name?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_name?: string
+          product_type?: string
+          product_weight_grams?: number
+          purchase_date?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sales: {
         Row: {
           amount: number
@@ -53,6 +95,36 @@ export type Database = {
           product_weight_grams?: number | null
           quantity?: number
           sale_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      stock: {
+        Row: {
+          created_at: string
+          id: string
+          product_name: string
+          product_type: string
+          product_weight_grams: number
+          quantity_available: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_name: string
+          product_type: string
+          product_weight_grams?: number
+          quantity_available?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_name?: string
+          product_type?: string
+          product_weight_grams?: number
+          quantity_available?: number
           updated_at?: string
         }
         Relationships: []

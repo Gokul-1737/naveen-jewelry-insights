@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { 
   BarChart3, 
@@ -10,8 +9,9 @@ import {
   Menu, 
   TrendingUp, 
   X,
-  Wrench,
-  Upload
+  Package,
+  ShoppingCart,
+  DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -24,8 +24,9 @@ const Navbar = ({ user, currentPage, onPageChange, onLogout }) => {
     { id: 'today-sales', label: 'Today Sales', icon: Calendar },
     { id: 'monthly-sales', label: 'Monthly Sales', icon: BarChart3 },
     { id: 'yearly-sales', label: 'Yearly Sales', icon: TrendingUp },
-    { id: 'stock-maintenance', label: 'Stock Maintenance', icon: Wrench },
-    { id: 'import', label: 'Import Data', icon: Upload },
+    { id: 'total-stock', label: 'Total Stock', icon: Package },
+    { id: 'buying-products', label: 'Buying Products', icon: ShoppingCart },
+    { id: 'selling-products', label: 'Selling Products', icon: DollarSign },
     { id: 'export', label: 'Export Data', icon: Download },
   ];
 
