@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ const ExportData = () => {
   const [salesData, setSalesData] = useState([]);
   const [purchasesData, setPurchasesData] = useState([]);
   const [stockData, setStockData] = useState([]);
+  const [leaveAmountsData, setLeaveAmountsData] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -31,7 +31,8 @@ const ExportData = () => {
       await Promise.all([
         fetchSalesData(),
         fetchPurchasesData(),
-        fetchStockData()
+        fetchStockData(),
+        fetchLeaveAmountsData()
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -97,6 +98,27 @@ const ExportData = () => {
     }
   };
 
+  const fetchLeaveAmountsData = async () => {
+    try {
+      let query = supabase
+        .from('leave_amounts')
+        .select('*')
+        .order('leave_date', { ascending: false });
+
+      if (dateRange.from && dateRange.to) {
+        query = query
+          .gte('leave_date', format(dateRange.from, 'yyyy-MM-dd'))
+          .lte('leave_date', format(dateRange.to, 'yyyy-MM-dd'));
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setLeaveAmountsData(data || []);
+    } catch (error) {
+      console.error('Error fetching leave amounts:', error);
+    }
+  };
+
   const exportSalesData = () => {
     if (salesData.length === 0) {
       toast.error('No sales data to export');
@@ -123,6 +145,65 @@ const ExportData = () => {
     const fileName = `sales_data_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
     toast.success('Sales data exported successfully');
+  };
+
+  const exportTodaysData = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    
+    // Filter today's sales
+    const todaysSales = salesData.filter(sale => 
+      format(new Date(sale.sale_date), 'yyyy-MM-dd') === today
+    );
+    
+    // Filter today's leave amounts
+    const todaysLeaveAmounts = leaveAmountsData.filter(leave => 
+      format(new Date(leave.leave_date), 'yyyy-MM-dd') === today
+    );
+
+    if (todaysSales.length === 0 && todaysLeaveAmounts.length === 0) {
+      toast.error('No data found for today');
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    // Add today's sales
+    if (todaysSales.length > 0) {
+      const salesExportData = todaysSales.map(sale => ({
+        'Date': format(new Date(sale.sale_date), 'yyyy-MM-dd'),
+        'Product Name': sale.product_name,
+        'Product Type': sale.product_type,
+        'Weight (g)': sale.product_weight_grams || 0,
+        'Quantity': sale.quantity,
+        'Buyer Name': sale.buyer_name,
+        'Total Amount': sale.amount,
+        'Given Amount': sale.given_amount || 0,
+        'Balance Amount': sale.balance_amount || 0,
+        'Notes': sale.notes || ''
+      }));
+      const salesWorksheet = XLSX.utils.json_to_sheet(salesExportData);
+      XLSX.utils.book_append_sheet(workbook, salesWorksheet, 'Today Sales');
+    }
+
+    // Add today's leave amounts
+    if (todaysLeaveAmounts.length > 0) {
+      const leaveAmountsExportData = todaysLeaveAmounts.map(leave => ({
+        'Date': format(new Date(leave.leave_date), 'yyyy-MM-dd'),
+        'Product Name': leave.product_name,
+        'Product Type': leave.product_type,
+        'Weight (g)': leave.product_weight_grams || 0,
+        'Quantity': leave.quantity,
+        'Buyer Name': leave.buyer_name,
+        'Amount': leave.amount,
+        'Notes': leave.notes || ''
+      }));
+      const leaveAmountsWorksheet = XLSX.utils.json_to_sheet(leaveAmountsExportData);
+      XLSX.utils.book_append_sheet(workbook, leaveAmountsWorksheet, 'Today Leave Amounts');
+    }
+
+    const fileName = `todays_data_${today}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    toast.success('Today\'s data exported successfully');
   };
 
   const exportPurchasesData = () => {
@@ -173,6 +254,32 @@ const ExportData = () => {
     const fileName = `stock_data_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
     toast.success('Stock data exported successfully');
+  };
+
+  const exportLeaveAmountsData = () => {
+    if (leaveAmountsData.length === 0) {
+      toast.error('No leave amounts data to export');
+      return;
+    }
+
+    const exportData = leaveAmountsData.map(leave => ({
+      'Date': format(new Date(leave.leave_date), 'yyyy-MM-dd'),
+      'Product Name': leave.product_name,
+      'Product Type': leave.product_type,
+      'Weight (g)': leave.product_weight_grams || 0,
+      'Quantity': leave.quantity,
+      'Buyer Name': leave.buyer_name,
+      'Amount': leave.amount,
+      'Notes': leave.notes || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Leave Amounts Data');
+
+    const fileName = `leave_amounts_data_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    toast.success('Leave amounts data exported successfully');
   };
 
   const exportAllData = () => {
@@ -226,6 +333,22 @@ const ExportData = () => {
       XLSX.utils.book_append_sheet(workbook, stockWorksheet, 'Stock');
     }
 
+    // Leave amounts data
+    if (leaveAmountsData.length > 0) {
+      const leaveAmountsExportData = leaveAmountsData.map(leave => ({
+        'Date': format(new Date(leave.leave_date), 'yyyy-MM-dd'),
+        'Product Name': leave.product_name,
+        'Product Type': leave.product_type,
+        'Weight (g)': leave.product_weight_grams || 0,
+        'Quantity': leave.quantity,
+        'Buyer Name': leave.buyer_name,
+        'Amount': leave.amount,
+        'Notes': leave.notes || ''
+      }));
+      const leaveAmountsWorksheet = XLSX.utils.json_to_sheet(leaveAmountsExportData);
+      XLSX.utils.book_append_sheet(workbook, leaveAmountsWorksheet, 'Leave Amounts');
+    }
+
     const fileName = `complete_data_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
     toast.success('All data exported successfully');
@@ -235,7 +358,7 @@ const ExportData = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Export Data</h1>
-        <p className="text-gray-600">Export your sales, purchases, and stock data to Excel format</p>
+        <p className="text-gray-600">Export your sales, purchases, stock data, and leave amounts to Excel format</p>
       </div>
 
       <Card>
@@ -309,7 +432,30 @@ const ExportData = () => {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Today's Data Export */}
+        <Card className="md:col-span-2 lg:col-span-3">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5" />
+              Today's Complete Data
+            </CardTitle>
+            <CardDescription>
+              Export today's sales and leave amounts in one file
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={exportTodaysData} 
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Today's Data
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -333,6 +479,33 @@ const ExportData = () => {
             >
               <Download className="w-4 h-4 mr-2" />
               Export Sales
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Leave Amounts
+            </CardTitle>
+            <CardDescription>
+              {leaveAmountsData.length} records
+              {dateRange.from && dateRange.to && (
+                <span className="block text-xs">
+                  {format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd, yyyy")}
+                </span>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={exportLeaveAmountsData} 
+              disabled={loading || leaveAmountsData.length === 0}
+              className="w-full"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Leave Amounts
             </Button>
           </CardContent>
         </Card>

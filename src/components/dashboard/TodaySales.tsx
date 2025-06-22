@@ -43,6 +43,7 @@ const TodaySales = () => {
   const [showForm, setShowForm] = useState(false);
   const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingLeaveId, setEditingLeaveId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -169,6 +170,7 @@ const TodaySales = () => {
       notes: ''
     });
     setShowLeaveForm(false);
+    setEditingLeaveId(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -265,16 +267,30 @@ const TodaySales = () => {
 
       console.log('Saving leave amount data:', leaveData);
 
-      const { error } = await supabase
-        .from('leave_amounts')
-        .insert([leaveData]);
+      if (editingLeaveId) {
+        const { error } = await supabase
+          .from('leave_amounts')
+          .update(leaveData)
+          .eq('id', editingLeaveId);
 
-      if (error) throw error;
-      
-      toast({
-        title: "Success",
-        description: "Leave amount recorded successfully",
-      });
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Leave amount updated successfully",
+        });
+      } else {
+        const { error } = await supabase
+          .from('leave_amounts')
+          .insert([leaveData]);
+
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Leave amount recorded successfully",
+        });
+      }
 
       resetLeaveForm();
       fetchLeaveAmounts();
@@ -303,6 +319,20 @@ const TodaySales = () => {
     });
     setEditingId(sale.id);
     setShowForm(true);
+  };
+
+  const handleEditLeaveAmount = (leave: LeaveAmount) => {
+    setLeaveFormData({
+      product_name: leave.product_name,
+      product_type: leave.product_type,
+      product_weight_grams: leave.product_weight_grams.toString(),
+      amount: leave.amount.toString(),
+      buyer_name: leave.buyer_name,
+      quantity: leave.quantity.toString(),
+      notes: leave.notes || ''
+    });
+    setEditingLeaveId(leave.id);
+    setShowLeaveForm(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -417,7 +447,9 @@ const TodaySales = () => {
       {showLeaveForm && (
         <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg animate-scale-in">
           <CardHeader>
-            <CardTitle className="text-gray-800">Record Leave Amount</CardTitle>
+            <CardTitle className="text-gray-800">
+              {editingLeaveId ? 'Edit Leave Amount' : 'Record Leave Amount'}
+            </CardTitle>
             <CardDescription>
               Enter the details of products left with customers
             </CardDescription>
@@ -539,7 +571,7 @@ const TodaySales = () => {
                   disabled={loading}
                 >
                   <Save size={16} className="mr-2" />
-                  Record Leave Amount
+                  {editingLeaveId ? 'Update Leave Amount' : 'Record Leave Amount'}
                 </Button>
                 <Button
                   type="button"
@@ -866,6 +898,15 @@ const TodaySales = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEditLeaveAmount(leave)}
+                        className="text-blue-600 border-blue-200 hover:bg-blue-50 transition-all duration-200 hover:scale-110"
+                        disabled={loading}
+                      >
+                        <Edit size={14} />
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
