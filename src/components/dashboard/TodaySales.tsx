@@ -39,6 +39,7 @@ interface LeaveAmount {
 
 const TodaySales = () => {
   const [sales, setSales] = useState<Sale[]>([]);
+  const [leaveAmounts, setLeaveAmounts] = useState<LeaveAmount[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,6 +69,7 @@ const TodaySales = () => {
 
   useEffect(() => {
     fetchSales();
+    fetchLeaveAmounts();
   }, [dateRange]);
 
   const fetchSales = async () => {
@@ -104,6 +106,40 @@ const TodaySales = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLeaveAmounts = async () => {
+    try {
+      let query = supabase
+        .from('leave_amounts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (dateRange?.from && dateRange?.to) {
+        query = query
+          .gte('leave_date', dateRange.from.toISOString().split('T')[0])
+          .lte('leave_date', dateRange.to.toISOString().split('T')[0]);
+      } else if (dateRange?.from && !dateRange?.to) {
+        // Single date selected
+        query = query.eq('leave_date', dateRange.from.toISOString().split('T')[0]);
+      } else if (!dateRange) {
+        // Default to today's leave amounts
+        const today = new Date().toISOString().split('T')[0];
+        query = query.eq('leave_date', today);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setLeaveAmounts(data || []);
+    } catch (error) {
+      console.error('Error fetching leave amounts:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch leave amounts data",
+        variant: "destructive",
+      });
     }
   };
 
@@ -241,6 +277,7 @@ const TodaySales = () => {
       });
 
       resetLeaveForm();
+      fetchLeaveAmounts();
     } catch (error) {
       console.error('Error saving leave amount:', error);
       toast({
@@ -295,9 +332,37 @@ const TodaySales = () => {
     }
   };
 
+  const handleDeleteLeaveAmount = async (id: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('leave_amounts')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Leave amount deleted successfully",
+      });
+      
+      fetchLeaveAmounts();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete leave amount",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const totalRevenue = sales.reduce((sum, sale) => sum + sale.amount, 0);
   const totalGiven = sales.reduce((sum, sale) => sum + sale.given_amount, 0);
   const totalBalance = sales.reduce((sum, sale) => sum + sale.balance_amount, 0);
+  const totalLeaveAmount = leaveAmounts.reduce((sum, leave) => sum + leave.amount, 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -307,7 +372,7 @@ const TodaySales = () => {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
             Sales Management
           </h1>
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-4 gap-2 text-sm">
             <p className="text-gray-600">
               Total Revenue: <span className="font-bold text-green-600">₹{totalRevenue.toLocaleString()}</span>
             </p>
@@ -316,6 +381,9 @@ const TodaySales = () => {
             </p>
             <p className="text-gray-600">
               Balance: <span className="font-bold text-red-600">₹{totalBalance.toLocaleString()}</span>
+            </p>
+            <p className="text-gray-600">
+              Leave Amount: <span className="font-bold text-purple-600">₹{totalLeaveAmount.toLocaleString()}</span>
             </p>
           </div>
         </div>
@@ -727,6 +795,81 @@ const TodaySales = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => handleDelete(sale.id)}
+                        className="text-red-600 border-red-200 hover:bg-red-50 transition-all duration-200 hover:scale-110"
+                        disabled={loading}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Leave Amounts List */}
+      <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-gray-800">Leave Amount Records</CardTitle>
+          <CardDescription>
+            {leaveAmounts.length} leave amount{leaveAmounts.length !== 1 ? 's' : ''} found
+            {dateRange?.from && dateRange?.to && (
+              <span className="ml-2">
+                ({new Date(dateRange.from).toLocaleDateString()} - {new Date(dateRange.to).toLocaleDateString()})
+              </span>
+            )}
+            {dateRange?.from && !dateRange?.to && (
+              <span className="ml-2">
+                ({new Date(dateRange.from).toLocaleDateString()})
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            </div>
+          ) : leaveAmounts.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No leave amounts found for the selected period. Record your first leave amount above!
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {leaveAmounts.map((leave, index) => (
+                <div
+                  key={leave.id}
+                  className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-purple-50/30 rounded-lg backdrop-blur-sm border border-purple-200/20 transition-all duration-200 hover:shadow-md hover:scale-[1.02] animate-fade-in"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <div className="flex-1 space-y-1">
+                    <h4 className="font-semibold text-gray-800">{leave.product_name}</h4>
+                    <p className="text-sm text-gray-600">
+                      {leave.product_type} • {leave.product_weight_grams}g • Qty: {leave.quantity} • {leave.buyer_name}
+                    </p>
+                    <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                      <span>Amount: ₹{leave.amount.toLocaleString()}</span>
+                    </div>
+                    {leave.notes && (
+                      <p className="text-xs text-gray-500">{leave.notes}</p>
+                    )}
+                    <p className="text-xs text-gray-400">
+                      Leave Date: {new Date(leave.leave_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 mt-3 sm:mt-0">
+                    <div className="text-right">
+                      <div className="font-bold text-purple-600 text-lg">
+                        ₹{leave.amount.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeleteLeaveAmount(leave.id)}
                         className="text-red-600 border-red-200 hover:bg-red-50 transition-all duration-200 hover:scale-110"
                         disabled={loading}
                       >
