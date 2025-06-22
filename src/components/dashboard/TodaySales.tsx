@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, X, Calendar } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Calendar, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,9 +24,23 @@ interface Sale {
   created_at: string;
 }
 
+interface LeaveAmount {
+  id: string;
+  product_name: string;
+  product_type: string;
+  product_weight_grams: number;
+  amount: number;
+  buyer_name: string;
+  quantity: number;
+  notes: string;
+  leave_date: string;
+  created_at: string;
+}
+
 const TodaySales = () => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [loading, setLoading] = useState(false);
@@ -36,6 +50,15 @@ const TodaySales = () => {
     product_weight_grams: '',
     amount: '',
     given_amount: '',
+    buyer_name: '',
+    quantity: '1',
+    notes: ''
+  });
+  const [leaveFormData, setLeaveFormData] = useState({
+    product_name: '',
+    product_type: '',
+    product_weight_grams: '',
+    amount: '',
     buyer_name: '',
     quantity: '1',
     notes: ''
@@ -59,6 +82,9 @@ const TodaySales = () => {
         query = query
           .gte('sale_date', dateRange.from.toISOString().split('T')[0])
           .lte('sale_date', dateRange.to.toISOString().split('T')[0]);
+      } else if (dateRange?.from && !dateRange?.to) {
+        // Single date selected
+        query = query.eq('sale_date', dateRange.from.toISOString().split('T')[0]);
       } else if (!dateRange) {
         // Default to today's sales
         const today = new Date().toISOString().split('T')[0];
@@ -94,6 +120,19 @@ const TodaySales = () => {
     });
     setShowForm(false);
     setEditingId(null);
+  };
+
+  const resetLeaveForm = () => {
+    setLeaveFormData({
+      product_name: '',
+      product_type: '',
+      product_weight_grams: '',
+      amount: '',
+      buyer_name: '',
+      quantity: '1',
+      notes: ''
+    });
+    setShowLeaveForm(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -156,6 +195,57 @@ const TodaySales = () => {
       toast({
         title: "Error",
         description: "Failed to save sale",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLeaveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!leaveFormData.product_name || !leaveFormData.product_type || !leaveFormData.amount || !leaveFormData.buyer_name) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const leaveData = {
+        product_name: leaveFormData.product_name.trim(),
+        product_type: leaveFormData.product_type.trim(),
+        product_weight_grams: parseFloat(leaveFormData.product_weight_grams) || 0,
+        amount: parseFloat(leaveFormData.amount),
+        buyer_name: leaveFormData.buyer_name.trim(),
+        quantity: parseInt(leaveFormData.quantity) || 1,
+        notes: leaveFormData.notes.trim(),
+        leave_date: new Date().toISOString().split('T')[0]
+      };
+
+      console.log('Saving leave amount data:', leaveData);
+
+      const { error } = await supabase
+        .from('leave_amounts')
+        .insert([leaveData]);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Leave amount recorded successfully",
+      });
+
+      resetLeaveForm();
+    } catch (error) {
+      console.error('Error saving leave amount:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save leave amount",
         variant: "destructive",
       });
     } finally {
@@ -237,6 +327,14 @@ const TodaySales = () => {
             className="w-full sm:w-auto"
           />
           <Button
+            onClick={() => setShowLeaveForm(true)}
+            className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg transition-all duration-200 hover:scale-105"
+            disabled={loading}
+          >
+            <Package size={18} className="mr-2" />
+            Leave Amount
+          </Button>
+          <Button
             onClick={() => setShowForm(true)}
             className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white shadow-lg transition-all duration-200 hover:scale-105"
             disabled={loading}
@@ -246,6 +344,150 @@ const TodaySales = () => {
           </Button>
         </div>
       </div>
+
+      {/* Leave Amount Form */}
+      {showLeaveForm && (
+        <Card className="backdrop-blur-lg bg-white/20 border border-white/30 shadow-lg animate-scale-in">
+          <CardHeader>
+            <CardTitle className="text-gray-800">Record Leave Amount</CardTitle>
+            <CardDescription>
+              Enter the details of products left with customers
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLeaveSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Product Name *
+                </label>
+                <Input
+                  value={leaveFormData.product_name}
+                  onChange={(e) => setLeaveFormData(prev => ({ ...prev, product_name: e.target.value }))}
+                  placeholder="Enter product name (e.g., Gold)"
+                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-purple-500"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Product Type *
+                </label>
+                <Select 
+                  value={leaveFormData.product_type} 
+                  onValueChange={(value) => setLeaveFormData(prev => ({ ...prev, product_type: value }))}
+                  disabled={loading}
+                >
+                  <SelectTrigger className="bg-white/50 border-white/30">
+                    <SelectValue placeholder="Select product type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productTypes.map(type => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Product Weight (grams) *
+                </label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={leaveFormData.product_weight_grams}
+                  onChange={(e) => setLeaveFormData(prev => ({ ...prev, product_weight_grams: e.target.value }))}
+                  placeholder="Enter weight (e.g., 100)"
+                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-purple-500"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quantity *
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={leaveFormData.quantity}
+                  onChange={(e) => setLeaveFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                  placeholder="Quantity"
+                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-purple-500"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Total Amount (₹) *
+                </label>
+                <Input
+                  type="number"
+                  value={leaveFormData.amount}
+                  onChange={(e) => setLeaveFormData(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="Enter total amount"
+                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-purple-500"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Buyer Name *
+                </label>
+                <Input
+                  value={leaveFormData.buyer_name}
+                  onChange={(e) => setLeaveFormData(prev => ({ ...prev, buyer_name: e.target.value }))}
+                  placeholder="Enter buyer name"
+                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-purple-500"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <Input
+                  value={leaveFormData.notes}
+                  onChange={(e) => setLeaveFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Optional notes"
+                  className="bg-white/50 border-white/30 transition-all duration-200 focus:ring-2 focus:ring-purple-500"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="md:col-span-2 flex gap-3 pt-4">
+                <Button
+                  type="submit"
+                  className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white transition-all duration-200 hover:scale-105"
+                  disabled={loading}
+                >
+                  <Save size={16} className="mr-2" />
+                  Record Leave Amount
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetLeaveForm}
+                  className="border-gray-300 transition-all duration-200 hover:scale-105"
+                  disabled={loading}
+                >
+                  <X size={16} className="mr-2" />
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sales Entry Form */}
       {showForm && (
@@ -415,6 +657,11 @@ const TodaySales = () => {
             {dateRange?.from && dateRange?.to && (
               <span className="ml-2">
                 ({new Date(dateRange.from).toLocaleDateString()} - {new Date(dateRange.to).toLocaleDateString()})
+              </span>
+            )}
+            {dateRange?.from && !dateRange?.to && (
+              <span className="ml-2">
+                ({new Date(dateRange.from).toLocaleDateString()})
               </span>
             )}
           </CardDescription>
